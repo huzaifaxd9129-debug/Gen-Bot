@@ -12,7 +12,7 @@ const express = require("express");
 
 const TOKEN = process.env.BOT_TOKEN;
 const PREFIX = process.env.PREFIX || "?";
-const GEN_CHANNEL_ID = process.env.GEN_CHANNEL_ID || "1431322412166938635";
+const GEN_CHANNEL_ID = process.env.GEN_CHANNEL_ID || "1500277148500492401";
 const COOLDOWN_SECONDS = 60 * 5;
 
 if (!TOKEN) {
