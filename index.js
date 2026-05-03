@@ -12,7 +12,7 @@ const express = require("express");
 
 const TOKEN = process.env.BOT_TOKEN;
 const PREFIX = process.env.PREFIX || "?";
-const GEN_CHANNEL_ID = process.env.GEN_CHANNEL_ID || "1500277148500492401";
+const GEN_CHANNEL_ID = process.env.GEN_CHANNEL_ID || "1500622495236231388";
 const COOLDOWN_SECONDS = 60 * 5;
 
 if (!TOKEN) {
@@ -92,7 +92,7 @@ client.on("messageCreate", async (message) => {
           `**${PREFIX}addstock <type> <email:pass>** → Admin only\n` +
           `**${PREFIX}stock** → View stock counts (admin)`
       )
-      .setFooter({ text: "Made with ❤️ by @BlackFlameYT" });
+      .setFooter({ text: "Made With ❤️ By Huztro });
     return safeReply(message, { embeds: [embed] });
   }
 
@@ -131,7 +131,7 @@ client.on("messageCreate", async (message) => {
     saveStock();
 
     try {
-      await message.author.send(`🎁 Your **${type.toUpperCase()}** account:\n\`${code}\`\nEnjoy responsibly!\n\n❤️ Made by @BlackFlameYT`);
+      await message.author.send(`🎁 Your **${type.toUpperCase()}** account:\n\`${code}\`\nEnjoy responsibly!\n\n❤️ Made by @Huztro`);
       cooldowns.set(message.author.id, now);
 
       const embed = new EmbedBuilder().setTitle("✅ Account Sent!").setDescription(`Check your DMs for your **${type.toUpperCase()}** account!`).setColor("Green").setFooter({ text: "Made with ❤️ by @BlackFlameYT" });
