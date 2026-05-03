@@ -1,185 +1,189 @@
 require("dotenv").config();
+
 const {
   Client,
   GatewayIntentBits,
-  Partials,
   EmbedBuilder,
   PermissionsBitField,
+  ActivityType,
 } = require("discord.js");
+
 const fs = require("fs");
 const path = require("path");
-const express = require("express");
 
+// ================= CONFIG =================
+const PREFIX = process.env.PREFIX || "+";
 const TOKEN = process.env.BOT_TOKEN;
-const PREFIX = process.env.PREFIX || "?";
-const GEN_CHANNEL_ID = process.env.GEN_CHANNEL_ID || "1500622495236231388";
-const COOLDOWN_SECONDS = 60 * 5;
+const VERIFY_ROLE_ID = process.env.VERIFY_ROLE_ID;
+const REQUIRED_STATUS = "discord.gg/aYNdYe8PCb";
 
-if (!TOKEN) {
-  console.error("❌ BOT_TOKEN not found in .env — add BOT_TOKEN=MTUwMDYyNTE0MDE2ODUyMzg2Nw.GgcAm1.YTZ3S-rv0qIYUaP5oLUp8RGP5IL7amVnDvOhSw");
-  process.exit(1);
-}
-
-const stockPath = path.join(__dirname, "stock.json");
-let stock = {};
-try {
-  if (fs.existsSync(stockPath)) {
-    stock = JSON.parse(fs.readFileSync(stockPath, "utf8"));
-  } else {
-    stock = { mcfa: [], crunchyroll: [], netflix: [] };
-    fs.writeFileSync(stockPath, JSON.stringify(stock, null, 2));
-  }
-} catch (err) {
-  console.error("❌ Failed to load stock.json:", err);
-  stock = { mcfa: [], crunchyroll: [], netflix: [] };
-  fs.writeFileSync(stockPath, JSON.stringify(stock, null, 2));
-}
-
-function saveStock() {
-  try {
-    fs.writeFileSync(stockPath, JSON.stringify(stock, null, 2));
-  } catch (err) {
-    console.error("❌ Failed to save stock.json:", err);
-  }
-}
-
-for (const k of Object.keys(stock)) {
-  stock[k] = Array.isArray(stock[k]) ? stock[k].map(s => (s || "").toString().trim()).filter(Boolean) : [];
-}
-
+// ================= CLIENT =================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.GuildPresences,
   ],
-  partials: [Partials.Channel],
 });
 
-const cooldowns = new Map();
-
+// ================= READY =================
 client.once("ready", () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-  client.user.setActivity(`Generating Mcfa In BlackFlame's HomeTown | ${PREFIX}help`);
+  console.log(`Logged in as ${client.user.tag}`);
+
+  client.user.setActivity("Made By Huztro", {
+    type: ActivityType.Watching,
+  });
 });
 
-async function safeReply(message, payload) {
-  try {
-    if (message.deletable) {
-    }
-    return await message.reply(payload);
-  } catch (err) {
-    console.warn("⚠️ safeReply failed:", err.code ?? err.message);
-    return null;
-  }
-}
+// ================= WELCOME SYSTEM =================
+client.on("guildMemberAdd", async (member) => {
+  const channel = member.guild.systemChannel;
+  if (!channel) return;
 
+  const embed = new EmbedBuilder()
+    .setTitle("👋 Welcome!")
+    .setDescription(`Welcome ${member} to **${member.guild.name}**`)
+    .setColor("Green");
+
+  channel.send({ embeds: [embed] });
+});
+
+// ================= MESSAGE HANDLER =================
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
   if (!message.content.startsWith(PREFIX)) return;
 
-  const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
+  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const cmd = args.shift().toLowerCase();
 
-  if (cmd === "help" || cmd === "h") {
+  const stockFile = path.join(__dirname, "data/stock.json");
+  let stock = {};
+  if (fs.existsSync(stockFile)) {
+    stock = JSON.parse(fs.readFileSync(stockFile));
+  }
+
+  // ================= STATUS =================
+  if (cmd === "status") {
     const embed = new EmbedBuilder()
-      .setTitle("🎁 MCFA Gen Bot Commands")
-      .setColor("Purple")
-      .setDescription(
-        `**${PREFIX}gen <type>** → Generate (only in gen channel)\n` +
-          `**${PREFIX}list** → Show types\n` +
-          `**${PREFIX}addstock <type> <email:pass>** → Admin only\n` +
-          `**${PREFIX}stock** → View stock counts (admin)`
-      )
-      .setFooter({ text: "Made With ❤️ By Huztro" });
-    return safeReply(message, { embeds: [embed] });
+      .setTitle("📊 Bot Status")
+      .setColor("Green")
+      .addFields(
+        { name: "Ping", value: `${client.ws.ping}ms` },
+        { name: "Status", value: "Online 🟢" },
+        { name: "Prefix", value: PREFIX }
+      );
+
+    return message.reply({ embeds: [embed] });
   }
 
-  if (cmd === "list") {
-    const keys = Object.keys(stock);
-    if (keys.length === 0) return safeReply(message, "❌ No stock found.");
-    const list = keys.map((k) => `• **${k}** (${stock[k].length} left)`).join("\n");
-    const embed = new EmbedBuilder().setTitle("📦 Available Stock").setColor("Blue").setDescription(list).setFooter({ text: "Made with ❤️ by @BlackFlameYT" });
-    return safeReply(message, { embeds: [embed] });
-  }
+  // ================= CSTATUS VERIFY SYSTEM =================
+  if (cmd === "cstatus") {
+    const member = await message.guild.members.fetch(message.author.id);
+    const presence = member.presence;
 
-  if (cmd === "gen") {
-    if (message.channel.id !== GEN_CHANNEL_ID) {
-      return safeReply(message, `❌ You can only use this command in <#${GEN_CHANNEL_ID}>`);
+    if (!presence) {
+      return message.reply("❌ Cannot detect status.");
     }
 
-    const type = args[0];
-    if (!type) return safeReply(message, `Usage: \`${PREFIX}gen <type>\``);
+    const activity = presence.activities.find(a => a.type === 4);
+    const customStatus = activity?.state;
 
-    const now = Date.now();
-    const last = cooldowns.get(message.author.id) || 0;
-    const elapsed = Math.floor((now - last) / 1000);
-    if (elapsed < COOLDOWN_SECONDS) {
-      return safeReply(message, `⏳ Wait ${COOLDOWN_SECONDS - elapsed}s before using again.`);
+    if (!customStatus) {
+      return message.reply("❌ No custom status found.");
     }
 
-    if (!stock[type] || stock[type].length === 0) {
-      return safeReply(message, `⚠️ No stock available for **${type}** right now.`);
-    }
+    if (customStatus.includes(REQUIRED_STATUS)) {
+      const role = message.guild.roles.cache.get(VERIFY_ROLE_ID);
+      if (!role) return message.reply("❌ Role not found.");
 
-    const code = stock[type].shift();
-    if (!code || code.length === 0) {
-      saveStock();
-      return safeReply(message, `⚠️ Could not fetch a valid account. Try again or contact admin.`);
-    }
-    saveStock();
-
-    try {
-      await message.author.send(`🎁 Your **${type.toUpperCase()}** account:\n\`${code}\`\nEnjoy responsibly!\n\n❤️ Made by @Huztro`);
-      cooldowns.set(message.author.id, now);
-
-      const embed = new EmbedBuilder().setTitle("✅ Account Sent!").setDescription(`Check your DMs for your **${type.toUpperCase()}** account!`).setColor("Green").setFooter({ text: "Made with ❤️ by @BlackFlameYT" });
-
-      await safeReply(message, { embeds: [embed] });
-
-      console.log(`[LOG] ${message.author.tag} generated ${type}: ${code}`);
-    } catch (err) {
-      stock[type].unshift(code);
-      saveStock();
-      console.warn("⚠️ DM failed:", err.code ?? err.message);
-      return safeReply(message, "❌ I couldn't DM you! Please enable DMs from server members.");
+      await member.roles.add(role);
+      return message.reply("✅ Verified successfully! Role given.");
+    } else {
+      return message.reply("❌ Required link not found in your status.");
     }
   }
 
-  if (cmd === "addstock") {
-    if (!message.inGuild()) return safeReply(message, "❌ This command only works in a server.");
-    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return safeReply(message, "❌ Only admins can add stock.");
-
-    const type = args[0];
-    const code = args.slice(1).join(" ").trim();
-    if (!type || !code) return safeReply(message, `Usage: \`${PREFIX}addstock <type> <email:pass>\``);
-
-    if (!code.includes(":")) return safeReply(message, "❌ Invalid format. Use `email:password`.");
-
-    if (!stock[type]) stock[type] = [];
-    stock[type].push(code);
-    saveStock();
-    return safeReply(message, `✅ Added new account to **${type}**.`);
-  }
-
+  // ================= STOCK =================
   if (cmd === "stock") {
-    if (!message.inGuild()) return safeReply(message, "❌ This command only works in a server.");
-    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return safeReply(message, "❌ Only admins can view stock.");
+    const embed = new EmbedBuilder()
+      .setTitle("📦 Stock")
+      .setColor("Blue")
+      .setDescription(
+        Object.keys(stock)
+          .map(x => `**${x}**: ${stock[x].length}`)
+          .join("\n") || "No stock"
+      );
 
-    const info = Object.entries(stock).map(([k, v]) => `${k}: ${v.length}`).join("\n");
-    const embed = new EmbedBuilder().setTitle("📦 Current Stock").setColor("Gold").setDescription(info || "No stock available.").setFooter({ text: "Made with ❤️ by @BlackFlameYT" });
+    return message.reply({ embeds: [embed] });
+  }
 
-    try {
-      await safeReply(message, { embeds: [embed] });
-    } catch (err) {
-      console.warn("⚠️ Could not send stock message:", err.code ?? err.message);
+  // ================= RESTOCK =================
+  if (cmd === "restock") {
+    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      return message.reply("❌ Admin only");
     }
+
+    const item = args[0];
+    const data = args.slice(1).join(" ").split(",");
+
+    if (!item || !data.length) {
+      return message.reply("Usage: +restock item value1,value2");
+    }
+
+    if (!stock[item]) stock[item] = [];
+
+    stock[item].push(...data);
+
+    fs.writeFileSync(stockFile, JSON.stringify(stock, null, 2));
+
+    return message.reply(`✅ Restocked **${item}**`);
+  }
+
+  // ================= GENERATOR =================
+  if (cmd === "gen") {
+    const item = args[0];
+    if (!item) return message.reply("Usage: +gen item");
+
+    if (!stock[item] || stock[item].length === 0) {
+      return message.reply("❌ Out of stock");
+    }
+
+    const data = stock[item].shift();
+
+    fs.writeFileSync(stockFile, JSON.stringify(stock, null, 2));
+
+    return message.author.send(`🎁 ${item}: \`${data}\``)
+      .then(() => message.reply("📩 Sent in DM"))
+      .catch(() => message.reply("If you didnt recive it enable your DMs"));
+  }
+
+  // ================= MODERATION =================
+  if (cmd === "kick") {
+    if (!message.member.permissions.has(PermissionsBitField.Flags.KickMembers)) return;
+
+    const user = message.mentions.members.first();
+    if (!user) return message.reply("Mention user");
+
+    await user.kick();
+    return message.reply("Kicked user");
+  }
+
+  if (cmd === "ban") {
+    if (!message.member.permissions.has(PermissionsBitField.Flags.BanMembers)) return;
+
+    const user = message.mentions.members.first();
+    if (!user) return message.reply("Mention user");
+
+    await user.ban();
+    return message.reply("Banned user");
+  }
+
+  if (cmd === "ping") {
+    return message.reply(`🏓 ${client.ws.ping}ms`);
   }
 });
 
-client.login(TOKEN).catch(err => {
-  console.error("❌ Failed to login. Check BOT_TOKEN in .env:", err.message);
-  process.exit(1);
-});
-
+// ================= LOGIN =================
+client.login(TOKEN);
