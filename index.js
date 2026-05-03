@@ -92,7 +92,7 @@ client.on("messageCreate", async (message) => {
           `**${PREFIX}addstock <type> <email:pass>** → Admin only\n` +
           `**${PREFIX}stock** → View stock counts (admin)`
       )
-      .setFooter({ text: "Made With ❤️ By Huztro });
+      .setFooter({ text: "Made With ❤️ By Huztro" });
     return safeReply(message, { embeds: [embed] });
   }
 
