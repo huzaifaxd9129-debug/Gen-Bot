@@ -16,7 +16,7 @@ const GEN_CHANNEL_ID = process.env.GEN_CHANNEL_ID || "1500622495236231388";
 const COOLDOWN_SECONDS = 60 * 5;
 
 if (!TOKEN) {
-  console.error("❌ BOT_TOKEN not found in .env — add BOT_TOKEN=your_token");
+  console.error("❌ BOT_TOKEN not found in .env — add BOT_TOKEN=MTUwMDYyNTE0MDE2ODUyMzg2Nw.GgcAm1.YTZ3S-rv0qIYUaP5oLUp8RGP5IL7amVnDvOhSw");
   process.exit(1);
 }
 
