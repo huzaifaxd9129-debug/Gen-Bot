@@ -80,12 +80,12 @@ client.on("messageCreate", async (message) => {
 
   // ================= CSTATUS VERIFY SYSTEM =================
   if (cmd === "cstatus") {
-    const member = await message.guild.members.fetch(message.author.id);
-    const presence = member.presence;
+const member = await message.guild.members.fetch(message.author.id);
+const presence = member.presence;
 
-    if (!presence) {
-      return message.reply("❌ Cannot detect status.");
-    }
+if (!presence || !presence.activities) {
+  return message.reply("❌ Cannot detect status.");
+}
 
     const activity = presence.activities.find(a => a.type === 4);
     const customStatus = activity?.state;
