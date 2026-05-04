@@ -58,10 +58,17 @@ client.on("messageCreate", async (message) => {
   const cmd = args.shift().toLowerCase();
 
   const stockFile = path.join(__dirname, "data/stock.json");
-  let stock = {};
+
+let stock = {};
+
+try {
   if (fs.existsSync(stockFile)) {
-    stock = JSON.parse(fs.readFileSync(stockFile));
+    stock = JSON.parse(fs.readFileSync(stockFile, "utf8") || "{}");
   }
+} catch (err) {
+  console.log("Stock load error:", err);
+  stock = {};
+}
 
   // ================= STATUS =================
   if (cmd === "status") {
@@ -78,31 +85,32 @@ client.on("messageCreate", async (message) => {
   }
 
   // ================= CSTATUS VERIFY SYSTEM =================
-  if (cmd === "cstatus") {
-const member = await message.guild.members.fetch(message.author.id);
-const presence = member.presence;
+if (cmd === "cstatus") {
+  const member = await message.guild.members.fetch(message.author.id);
 
-if (!presence || !presence.activities) {
-  return message.reply("❌ Cannot detect status.");
-}
+  const presence = member.presence;
 
-    const activity = presence.activities.find(a => a.type === 4);
-    const customStatus = activity?.state;
-
-    if (!customStatus) {
-      return message.reply("❌ No custom status found.");
-    }
-
-    if (customStatus.includes(REQUIRED_STATUS)) {
-      const role = message.guild.roles.cache.get(VERIFY_ROLE_ID);
-      if (!role) return message.reply("❌ Role not found.");
-
-      await member.roles.add(role);
-      return message.reply("✅ Verified successfully! Role given.");
-    } else {
-      return message.reply("❌ Required link not found in your status.");
-    }
+  if (!presence || !presence.activities) {
+    return message.reply("❌ Cannot detect status. Make sure presence intent is enabled.");
   }
+
+  const activity = presence.activities.find(a => a.type === 4);
+  const customStatus = activity?.state;
+
+  if (!customStatus) {
+    return message.reply("❌ No custom status found.");
+  }
+
+  if (customStatus.includes(REQUIRED_STATUS)) {
+    const role = message.guild.roles.cache.get(VERIFY_ROLE_ID);
+    if (!role) return message.reply("❌ Role not found.");
+
+    await member.roles.add(role);
+    return message.reply("✅ Verified successfully! Role given.");
+  } else {
+    return message.reply("❌ Required link not found in your status.");
+  }
+}
 
   // ================= STOCK =================
   if (cmd === "stock") {
