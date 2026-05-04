@@ -27,7 +27,6 @@ const client = new Client({
     GatewayIntentBits.GuildPresences,
   ],
 });
-
 // ================= READY =================
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
